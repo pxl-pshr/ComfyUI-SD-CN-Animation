@@ -54,19 +54,15 @@ def ensure_model(model_dir, filename):
             downloaded = hf_hub_download(
                 repo_id=HF_REPO,
                 filename=hf_path,
-                local_dir=model_dir,
+                cache_dir=os.path.join(model_dir, ".hf_cache"),
+                local_dir=None,
             )
-            # hf_hub_download may place file in a subfolder, move if needed
-            if downloaded != model_path and os.path.isfile(downloaded):
-                parent = os.path.dirname(downloaded)
-                shutil.move(downloaded, model_path)
-                # Clean up empty subdirectories left behind
-                while parent != model_dir and parent:
-                    try:
-                        os.rmdir(parent)  # only removes if empty
-                        parent = os.path.dirname(parent)
-                    except OSError:
-                        break
+            # Copy from cache to the expected flat path
+            shutil.copy2(downloaded, model_path)
+            # Clean up the cache directory
+            cache_dir = os.path.join(model_dir, ".hf_cache")
+            if os.path.isdir(cache_dir):
+                shutil.rmtree(cache_dir)
             logger.info(f"Downloaded {filename} via huggingface_hub")
             return model_path
         except ImportError:

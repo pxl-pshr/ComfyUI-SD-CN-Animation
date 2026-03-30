@@ -4,5 +4,6 @@ __pycache__/
 *.pth
 *.download
 *.egg-info/
+.hf_cache/
 .venv/
 venv/

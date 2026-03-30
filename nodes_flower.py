@@ -45,7 +45,7 @@ class LoadFloweRModel:
 
     def load_model(self, model_name):
         model_path = folder_paths.get_full_path("flower", model_name)
-        state_dict = torch.load(model_path, map_location="cpu", weights_only=True)
+        state_dict = torch.load(model_path, map_location="cpu", weights_only=False)
         return ({"state_dict": state_dict},)
 
 
