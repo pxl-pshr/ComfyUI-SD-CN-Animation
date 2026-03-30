@@ -16,7 +16,7 @@ import latent_preview
 
 from .flower_model import FloweR
 from .flow_utils import frames_norm, frames_renorm, occl_renorm
-from .sampling_utils import histogram_match_tensor, apply_controlnet_to_cond, do_sample, frame_to_preview
+from .sampling_utils import histogram_match_tensor, apply_controlnet_to_cond, do_sample, frame_to_preview, get_cond_for_frame
 
 logger = logging.getLogger(__name__)
 
@@ -107,9 +107,8 @@ class SDCNTxt2Vid:
             empty_latent = comfy.sample.fix_empty_latent_channels(model, empty_latent)
             noise = comfy.sample.prepare_noise(empty_latent, seed)
 
-            # Apply ControlNet to first frame if provided
-            pos_cond = positive
-            neg_cond = negative
+            pos_cond = get_cond_for_frame(positive, 0)
+            neg_cond = get_cond_for_frame(negative, 0)
 
             callback = latent_preview.prepare_callback(model, steps)
             samples = comfy.sample.sample(
@@ -198,12 +197,13 @@ class SDCNTxt2Vid:
                     # Also soften the occlusion mask — less inpainting as we converge
                     pred_occl_mask = pred_occl_mask * (1.0 - blend_t)
 
-            # Apply ControlNet per-frame if provided
-            pos_cond = positive
-            neg_cond = negative
+            # Get conditioning for this frame (supports prompt scheduling)
+            frame_num = i + 1
+            pos_cond = get_cond_for_frame(positive, frame_num)
+            neg_cond = get_cond_for_frame(negative, frame_num)
             if control_net is not None:
-                pos_cond = apply_controlnet_to_cond(positive, control_net, pred_next_img, cn_strength)
-                neg_cond = apply_controlnet_to_cond(negative, control_net, pred_next_img, cn_strength)
+                pos_cond = apply_controlnet_to_cond(pos_cond, control_net, pred_next_img, cn_strength)
+                neg_cond = apply_controlnet_to_cond(neg_cond, control_net, pred_next_img, cn_strength)
 
             # --- Inpaint pass (processing_strength) ---
             inpainted = do_sample(

@@ -16,7 +16,7 @@ import comfy.model_management as mm
 import folder_paths
 
 from .flow_utils import raft_estimate_flow, raft_load_model, raft_clear_memory, compute_diff_map
-from .sampling_utils import histogram_match_tensor, apply_controlnet_to_cond, do_sample, frame_to_preview
+from .sampling_utils import histogram_match_tensor, apply_controlnet_to_cond, do_sample, frame_to_preview, get_cond_for_frame
 from .model_downloader import ensure_model
 
 logger = logging.getLogger(__name__)
@@ -164,12 +164,12 @@ class SDCNVid2Vid:
         curr_frame_np = (frames[0].cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
         curr_frame_tensor = frames[0:1]  # (1, H, W, 3)
 
-        # Apply ControlNet if provided
-        pos_cond = positive
-        neg_cond = negative
+        # Get conditioning for first frame (supports prompt scheduling)
+        pos_cond = get_cond_for_frame(positive, 0)
+        neg_cond = get_cond_for_frame(negative, 0)
         if control_net is not None:
-            pos_cond = apply_controlnet_to_cond(positive, control_net, curr_frame_tensor, cn_strength)
-            neg_cond = apply_controlnet_to_cond(negative, control_net, curr_frame_tensor, cn_strength)
+            pos_cond = apply_controlnet_to_cond(pos_cond, control_net, curr_frame_tensor, cn_strength)
+            neg_cond = apply_controlnet_to_cond(neg_cond, control_net, curr_frame_tensor, cn_strength)
 
         # img2img first frame with full processing_strength
         styled_first = do_sample(
@@ -228,12 +228,12 @@ class SDCNVid2Vid:
             # Occlusion mask as tensor for inpainting
             occl_tensor = torch.from_numpy(occlusion_mask_uint8[..., 0]).float().unsqueeze(0) / 255.0  # (1, H, W)
 
-            # Apply ControlNet with current input frame as hint
-            pos_cond = positive
-            neg_cond = negative
+            # Get conditioning for this frame (supports prompt scheduling)
+            pos_cond = get_cond_for_frame(positive, i)
+            neg_cond = get_cond_for_frame(negative, i)
             if control_net is not None:
-                pos_cond = apply_controlnet_to_cond(positive, control_net, curr_frame_tensor, cn_strength)
-                neg_cond = apply_controlnet_to_cond(negative, control_net, curr_frame_tensor, cn_strength)
+                pos_cond = apply_controlnet_to_cond(pos_cond, control_net, curr_frame_tensor, cn_strength)
+                neg_cond = apply_controlnet_to_cond(neg_cond, control_net, curr_frame_tensor, cn_strength)
 
             # --- Step 1: Process/inpaint ---
             processed = do_sample(

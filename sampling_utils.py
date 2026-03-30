@@ -15,6 +15,33 @@ import latent_preview
 logger = logging.getLogger(__name__)
 
 
+def get_cond_for_frame(conditioning, frame_index):
+    """
+    Slice batched conditioning at a given frame index.
+    If conditioning is single-frame (batch dim == 1), returns it unchanged.
+    Compatible with FizzNodes BatchPromptSchedule output.
+    """
+    if conditioning is None or len(conditioning) == 0:
+        return conditioning
+
+    # Check if first entry has a batched tensor (batch dim > 1)
+    cond_tensor = conditioning[0][0]
+    if cond_tensor.shape[0] <= 1:
+        return conditioning
+
+    # Clamp frame index to available range
+    idx = min(frame_index, cond_tensor.shape[0] - 1)
+
+    sliced = []
+    for t in conditioning:
+        tensor = t[0][idx:idx+1]
+        d = t[1].copy()
+        if "pooled_output" in d and d["pooled_output"].shape[0] > 1:
+            d["pooled_output"] = d["pooled_output"][idx:idx+1]
+        sliced.append([tensor, d])
+    return sliced
+
+
 def histogram_match_tensor(source, reference):
     """
     Match histogram of source image to reference image.
