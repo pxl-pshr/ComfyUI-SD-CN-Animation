@@ -33,5 +33,5 @@ PublisherId = "pxlpshr"
 DisplayName = "ComfyUI-SD-CN-Animation"
 Icon = ""
 includes = [] 
-# "requires-comfyui" = ">=1.0.0"  # ComfyUI version compatibility
+# "requires-comfyui" = ">=1.0.1"  # ComfyUI version compatibility
 
