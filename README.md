@@ -4,6 +4,8 @@ Temporally coherent video generation and stylization for ComfyUI using optical f
 
 Generate videos from text prompts (**Txt2Vid**) or stylize existing videos (**Vid2Vid**) with any Stable Diffusion checkpoint, ControlNet, and IPAdapter — while maintaining smooth frame-to-frame consistency via optical flow prediction.
 
+![Example output](examples/example.gif)
+
 ## How It Works
 
 Both pipelines use a two-pass approach per frame to balance creativity with coherence:
