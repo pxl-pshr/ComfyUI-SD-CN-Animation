@@ -1,22 +1,191 @@
 {
   "id": "791d2c47-3e30-4250-a908-0d28d58609fa",
   "revision": 0,
-  "last_node_id": 13,
-  "last_link_id": 18,
+  "last_node_id": 32,
+  "last_link_id": 64,
   "nodes": [
     {
-      "id": 4,
+      "id": 15,
+      "type": "VHS_VideoCombine",
+      "pos": [
+        11650,
+        8030
+      ],
+      "size": [
+        513.4247515771767,
+        1237.9267840945508
+      ],
+      "flags": {},
+      "order": 16,
+      "mode": 4,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 19
+        },
+        {
+          "name": "audio",
+          "shape": 7,
+          "type": "AUDIO",
+          "link": null
+        },
+        {
+          "name": "meta_batch",
+          "shape": 7,
+          "type": "VHS_BatchManager",
+          "link": null
+        },
+        {
+          "name": "vae",
+          "shape": 7,
+          "type": "VAE",
+          "link": null
+        },
+        {
+          "name": "frame_rate",
+          "type": "FLOAT",
+          "widget": {
+            "name": "frame_rate"
+          },
+          "link": 61
+        }
+      ],
+      "outputs": [
+        {
+          "name": "Filenames",
+          "type": "VHS_FILENAMES",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-videohelpersuite",
+        "ver": "1.7.9",
+        "Node name for S&R": "VHS_VideoCombine",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": {
+        "frame_rate": 15,
+        "loop_count": 0,
+        "filename_prefix": "AnimateDiff",
+        "format": "video/h264-mp4",
+        "pix_fmt": "yuv420p",
+        "crf": 10,
+        "save_metadata": true,
+        "trim_to_audio": false,
+        "pingpong": false,
+        "save_output": true,
+        "videopreview": {
+          "hidden": false,
+          "paused": false,
+          "params": {
+            "filename": "AnimateDiff_00143.mp4",
+            "subfolder": "",
+            "type": "output",
+            "format": "video/h264-mp4",
+            "frame_rate": 30,
+            "workflow": "AnimateDiff_00143.png",
+            "fullpath": "C:\\Users\\jr\\AI\\ComfyUI\\output\\AnimateDiff_00143.mp4"
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
       "type": "CLIPTextEncode",
       "pos": [
-        8590,
-        9540
+        9482.825198527953,
+        10056.156754576597
       ],
       "size": [
         400,
         200
       ],
       "flags": {},
-      "order": 4,
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 4
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            32,
+            51
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.18.2",
+        "Node name for S&R": "CLIPTextEncode",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": [
+        "(masterpiece, best quality:1.2), ultra detailed skulls"
+      ]
+    },
+    {
+      "id": 28,
+      "type": "LoadFloweRModel",
+      "pos": [
+        9079.485389675652,
+        10421.677915862232
+      ],
+      "size": [
+        270,
+        58
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "flower_model",
+          "type": "FLOWER_MODEL",
+          "links": [
+            50,
+            59
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "pxl-pshr/ComfyUI-SD-CN-Animation",
+        "ver": "f6f27d079ffb4cf434ae63ba1681202ab2884757",
+        "Node name for S&R": "LoadFloweRModel"
+      },
+      "widgets_values": [
+        "FloweR_0.1.2.pth"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "CLIPTextEncode",
+      "pos": [
+        9480.098315396712,
+        10326.021047185397
+      ],
+      "size": [
+        400,
+        200
+      ],
+      "flags": {},
+      "order": 8,
       "mode": 0,
       "inputs": [
         {
@@ -30,7 +199,9 @@
           "name": "CONDITIONING",
           "type": "CONDITIONING",
           "links": [
-            5
+            33,
+            52,
+            58
           ]
         }
       ],
@@ -49,47 +220,11 @@
       ]
     },
     {
-      "id": 6,
-      "type": "LoadFloweRModel",
-      "pos": [
-        8680,
-        9810
-      ],
-      "size": [
-        270,
-        60
-      ],
-      "flags": {},
-      "order": 0,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "flower_model",
-          "type": "FLOWER_MODEL",
-          "links": [
-            8
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LoadFloweRModel",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.8"
-        }
-      },
-      "widgets_values": [
-        "FloweR_0.1.2.pth"
-      ]
-    },
-    {
       "id": 9,
       "type": "LoadImage",
       "pos": [
-        8220,
-        9460
+        10470.988437789756,
+        10108.951483587256
       ],
       "size": [
         290,
@@ -97,14 +232,14 @@
       ],
       "flags": {},
       "order": 1,
-      "mode": 0,
+      "mode": 4,
       "inputs": [],
       "outputs": [
         {
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            16
+            53
           ]
         },
         {
@@ -124,55 +259,456 @@
         }
       },
       "widgets_values": [
-        "pxlpshr_httpss.mj.run7o5LWI8LPk4_flowers_on_black_background__e21a0d3d-33d7-4a17-88fc-9f0a6ef3da33_0.png",
+        "commersart_87761_httpss.mj.run60TxQJ3RzdA_top_view_3d_realistic_d798a4c1-5198-4c23-9b83-963a38717103.png",
         "image"
       ]
     },
     {
-      "id": 2,
-      "type": "SDCNTxt2Vid",
+      "id": 14,
+      "type": "ControlNetLoader",
       "pos": [
-        9110,
-        9270
+        10621.815244432828,
+        9149.444574572264
       ],
       "size": [
-        280,
-        780
+        270,
+        58
       ],
       "flags": {},
-      "order": 5,
-      "mode": 0,
+      "order": 2,
+      "mode": 4,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "CONTROL_NET",
+          "type": "CONTROL_NET",
+          "links": [
+            31
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.18.1",
+        "Node name for S&R": "ControlNetLoader"
+      },
+      "widgets_values": [
+        "control_v11f1p_sd15_depth.pth"
+      ]
+    },
+    {
+      "id": 23,
+      "type": "ControlNetApplyAdvanced",
+      "pos": [
+        10631.266304451221,
+        8904.367998298745
+      ],
+      "size": [
+        270,
+        186
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 4,
       "inputs": [
-        {
-          "name": "model",
-          "type": "MODEL",
-          "link": 1
-        },
-        {
-          "name": "vae",
-          "type": "VAE",
-          "link": 2
-        },
         {
           "name": "positive",
           "type": "CONDITIONING",
-          "link": 3
+          "link": 32
         },
         {
           "name": "negative",
           "type": "CONDITIONING",
-          "link": 5
+          "link": 33
         },
         {
-          "name": "flower_model",
-          "type": "FLOWER_MODEL",
-          "link": 8
+          "name": "control_net",
+          "type": "CONTROL_NET",
+          "link": 31
         },
         {
-          "name": "init_image",
-          "shape": 7,
+          "name": "image",
           "type": "IMAGE",
-          "link": 16
+          "link": 34
+        },
+        {
+          "name": "vae",
+          "shape": 7,
+          "type": "VAE",
+          "link": 41
+        }
+      ],
+      "outputs": [
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "links": [
+            47
+          ]
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "links": [
+            48
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.18.1",
+        "Node name for S&R": "ControlNetApplyAdvanced"
+      },
+      "widgets_values": [
+        1,
+        0,
+        1
+      ]
+    },
+    {
+      "id": 32,
+      "type": "SDCNPromptSchedule",
+      "pos": [
+        10539.396692147071,
+        10899.187438585433
+      ],
+      "size": [
+        400,
+        200
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 4,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 60
+        }
+      ],
+      "outputs": [
+        {
+          "name": "conditioning",
+          "type": "CONDITIONING",
+          "links": [
+            57
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "pxl-pshr/ComfyUI-SD-CN-Animation",
+        "ver": "f6f27d079ffb4cf434ae63ba1681202ab2884757",
+        "Node name for S&R": "SDCNPromptSchedule"
+      },
+      "widgets_values": [
+        "  \"0\": \"a serene forest landscape\",\n  \"30\": \"a vibrant cityscape\",\n  \"60\": \"a vast ocean under starlight\""
+      ]
+    },
+    {
+      "id": 12,
+      "type": "LoadRAFTModel",
+      "pos": [
+        9080.914982009685,
+        10290.086448122674
+      ],
+      "size": [
+        270,
+        58
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "raft_model",
+          "type": "RAFT_MODEL",
+          "links": [
+            12
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "pxl-pshr/ComfyUI-SD-CN-Animation",
+        "ver": "60543d5dff09249743921a53a20d7995ab8cac25",
+        "Node name for S&R": "LoadRAFTModel",
+        "cnr_id": "sd-cn-animation"
+      },
+      "widgets_values": [
+        "raft-things.pth"
+      ]
+    },
+    {
+      "id": 16,
+      "type": "VHS_VideoInfo",
+      "pos": [
+        10637.961593734284,
+        8054.560106674882
+      ],
+      "size": [
+        234.931640625,
+        206
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 4,
+      "inputs": [
+        {
+          "name": "video_info",
+          "type": "VHS_VIDEOINFO",
+          "link": 21
+        }
+      ],
+      "outputs": [
+        {
+          "name": "source_fps🟨",
+          "type": "FLOAT",
+          "links": []
+        },
+        {
+          "name": "source_frame_count🟨",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "source_duration🟨",
+          "type": "FLOAT",
+          "links": null
+        },
+        {
+          "name": "source_width🟨",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "source_height🟨",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "loaded_fps🟦",
+          "type": "FLOAT",
+          "links": [
+            61
+          ]
+        },
+        {
+          "name": "loaded_frame_count🟦",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "loaded_duration🟦",
+          "type": "FLOAT",
+          "links": null
+        },
+        {
+          "name": "loaded_width🟦",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "loaded_height🟦",
+          "type": "INT",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-videohelpersuite",
+        "ver": "1.7.9",
+        "Node name for S&R": "VHS_VideoInfo"
+      },
+      "widgets_values": {}
+    },
+    {
+      "id": 13,
+      "type": "VHS_LoadVideo",
+      "pos": [
+        10160.418931369692,
+        8000.844849252189
+      ],
+      "size": [
+        255.8291015625,
+        749.5939200172506
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 4,
+      "inputs": [
+        {
+          "name": "meta_batch",
+          "shape": 7,
+          "type": "VHS_BatchManager",
+          "link": null
+        },
+        {
+          "name": "vae",
+          "shape": 7,
+          "type": "VAE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            17,
+            34
+          ]
+        },
+        {
+          "name": "frame_count",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "links": null
+        },
+        {
+          "name": "video_info",
+          "type": "VHS_VIDEOINFO",
+          "links": [
+            21
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-videohelpersuite",
+        "ver": "1.7.9",
+        "Node name for S&R": "VHS_LoadVideo"
+      },
+      "widgets_values": {
+        "video": "depths_00001 (1).mp4",
+        "force_rate": 0,
+        "custom_width": 0,
+        "custom_height": 0,
+        "frame_load_cap": 30,
+        "skip_first_frames": 0,
+        "select_every_nth": 1,
+        "format": "AnimateDiff",
+        "videopreview": {
+          "hidden": false,
+          "paused": false,
+          "params": {
+            "force_rate": 0,
+            "custom_width": 0,
+            "custom_height": 0,
+            "frame_load_cap": 30,
+            "skip_first_frames": 0,
+            "select_every_nth": 1,
+            "filename": "depths_00001 (1).mp4",
+            "type": "input",
+            "format": "video/mp4"
+          }
+        }
+      }
+    },
+    {
+      "id": 1,
+      "type": "CheckpointLoaderSimple",
+      "pos": [
+        8943.397316054785,
+        10122.037721948534
+      ],
+      "size": [
+        420,
+        100
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            45,
+            62,
+            63
+          ]
+        },
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            4,
+            6,
+            60
+          ]
+        },
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            14,
+            41,
+            54,
+            64
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.18.2",
+        "Node name for S&R": "CheckpointLoaderSimple",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": [
+        "1.5\\absolutereality_v10.safetensors"
+      ]
+    },
+    {
+      "id": 11,
+      "type": "SDCNVid2Vid",
+      "pos": [
+        11092.298059444489,
+        8114.307310544192
+      ],
+      "size": [
+        342.171875,
+        725.9999999999991
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 4,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 45
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 14
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 47
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 48
+        },
+        {
+          "name": "raft_model",
+          "type": "RAFT_MODEL",
+          "link": 12
+        },
+        {
+          "name": "frames",
+          "type": "IMAGE",
+          "link": 17
         },
         {
           "name": "control_net",
@@ -186,53 +722,136 @@
           "name": "frames",
           "type": "IMAGE",
           "links": [
-            18
+            19
           ]
         }
       ],
       "properties": {
-        "Node name for S&R": "SDCNTxt2Vid",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.8"
-        }
+        "aux_id": "pxl-pshr/ComfyUI-SD-CN-Animation",
+        "ver": "60543d5dff09249743921a53a20d7995ab8cac25",
+        "Node name for S&R": "SDCNVid2Vid",
+        "cnr_id": "sd-cn-animation"
       },
       "widgets_values": [
-        811282695014855,
-        "randomize",
-        20,
+        132983156380670,
+        "fixed",
+        15,
         5.5,
-        "dpmpp_sde",
-        "ddim_uniform",
-        576,
-        1024,
-        100,
-        0.55,
-        0.12,
+        "euler",
+        "simple",
+        0.85,
+        0.15,
+        1,
+        3,
+        5,
+        2,
+        0,
+        false,
+        1
+      ]
+    },
+    {
+      "id": 26,
+      "type": "SDCNTxt2Vid",
+      "pos": [
+        10940.106501000126,
+        9507.347085975625
+      ],
+      "size": [
+        279.25390625,
+        678
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 62
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 54
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 51
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 52
+        },
+        {
+          "name": "flower_model",
+          "type": "FLOWER_MODEL",
+          "link": 50
+        },
+        {
+          "name": "init_image",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 53
+        },
+        {
+          "name": "control_net",
+          "shape": 7,
+          "type": "CONTROL_NET",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "frames",
+          "type": "IMAGE",
+          "links": [
+            49
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "pxl-pshr/ComfyUI-SD-CN-Animation",
+        "ver": "f6f27d079ffb4cf434ae63ba1681202ab2884757",
+        "Node name for S&R": "SDCNTxt2Vid"
+      },
+      "widgets_values": [
+        894009436954305,
+        "fixed",
+        15,
+        5.5,
+        "euler",
+        "simple",
+        512,
+        512,
+        50,
+        0.85,
+        0.15,
         0,
         1
       ]
     },
     {
-      "id": 8,
+      "id": 27,
       "type": "VHS_VideoCombine",
       "pos": [
-        9530,
-        9270
+        11602.850506986379,
+        9487.042220690695
       ],
       "size": [
-        770,
-        1609.3333333333333
+        386.96378576089046,
+        714.9637857608905
       ],
       "flags": {},
-      "order": 6,
+      "order": 14,
       "mode": 0,
       "inputs": [
         {
           "name": "images",
           "type": "IMAGE",
-          "link": 18
+          "link": 49
         },
         {
           "name": "audio",
@@ -274,206 +893,485 @@
         "frame_rate": 15,
         "loop_count": 0,
         "filename_prefix": "AnimateDiff",
-        "format": "video/ProRes",
-        "profile": "4444xq",
+        "format": "video/h264-mp4",
+        "pix_fmt": "yuv420p",
+        "crf": 10,
+        "save_metadata": true,
+        "trim_to_audio": false,
         "pingpong": false,
         "save_output": true,
         "videopreview": {
           "hidden": false,
           "paused": false,
           "params": {
-            "filename": "AnimateDiff_00471.mov",
+            "filename": "AnimateDiff_00147.mp4",
             "subfolder": "",
             "type": "output",
-            "format": "video/ProRes",
+            "format": "video/h264-mp4",
             "frame_rate": 15,
-            "workflow": "AnimateDiff_00471.png",
-            "fullpath": "C:\\Users\\jr\\AI\\ComfyUI\\output\\AnimateDiff_00471.mov"
+            "workflow": "AnimateDiff_00147.png",
+            "fullpath": "C:\\Users\\jr\\AI\\ComfyUI\\output\\AnimateDiff_00147.mp4"
           }
         }
       }
     },
     {
-      "id": 3,
-      "type": "CLIPTextEncode",
+      "id": 29,
+      "type": "VHS_VideoCombine",
       "pos": [
-        8600,
-        9270
+        11607.513451573428,
+        10725.232591253278
       ],
       "size": [
-        400,
-        200
+        384.1535420760847,
+        712.1535420760847
       ],
       "flags": {},
-      "order": 3,
-      "mode": 0,
+      "order": 15,
+      "mode": 4,
       "inputs": [
         {
-          "name": "clip",
-          "type": "CLIP",
-          "link": 4
+          "name": "images",
+          "type": "IMAGE",
+          "link": 55
+        },
+        {
+          "name": "audio",
+          "shape": 7,
+          "type": "AUDIO",
+          "link": null
+        },
+        {
+          "name": "meta_batch",
+          "shape": 7,
+          "type": "VHS_BatchManager",
+          "link": null
+        },
+        {
+          "name": "vae",
+          "shape": 7,
+          "type": "VAE",
+          "link": null
         }
       ],
       "outputs": [
         {
-          "name": "CONDITIONING",
-          "type": "CONDITIONING",
-          "links": [
-            3
-          ]
+          "name": "Filenames",
+          "type": "VHS_FILENAMES",
+          "links": null
         }
       ],
       "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.18.2",
-        "Node name for S&R": "CLIPTextEncode",
+        "cnr_id": "comfyui-videohelpersuite",
+        "ver": "1.7.9",
+        "Node name for S&R": "VHS_VideoCombine",
         "ue_properties": {
           "widget_ue_connectable": {},
           "input_ue_unconnectable": {},
           "version": "7.8"
         }
       },
-      "widgets_values": [
-        ""
-      ]
+      "widgets_values": {
+        "frame_rate": 15,
+        "loop_count": 0,
+        "filename_prefix": "AnimateDiff",
+        "format": "video/h264-mp4",
+        "pix_fmt": "yuv420p",
+        "crf": 10,
+        "save_metadata": true,
+        "trim_to_audio": false,
+        "pingpong": false,
+        "save_output": true,
+        "videopreview": {
+          "hidden": false,
+          "paused": false,
+          "params": {
+            "filename": "AnimateDiff_00148.mp4",
+            "subfolder": "",
+            "type": "output",
+            "format": "video/h264-mp4",
+            "frame_rate": 15,
+            "workflow": "AnimateDiff_00148.png",
+            "fullpath": "C:\\Users\\jr\\AI\\ComfyUI\\output\\AnimateDiff_00148.mp4"
+          }
+        }
+      }
     },
     {
-      "id": 1,
-      "type": "CheckpointLoaderSimple",
+      "id": 30,
+      "type": "SDCNTxt2Vid",
       "pos": [
-        8170,
-        9260
+        11247.058704223125,
+        10769.803326621894
       ],
       "size": [
-        380,
-        100
+        279.25390625,
+        678
       ],
       "flags": {},
-      "order": 2,
-      "mode": 0,
-      "inputs": [],
+      "order": 12,
+      "mode": 4,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 63
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 64
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 57
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 58
+        },
+        {
+          "name": "flower_model",
+          "type": "FLOWER_MODEL",
+          "link": 59
+        },
+        {
+          "name": "init_image",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "control_net",
+          "shape": 7,
+          "type": "CONTROL_NET",
+          "link": null
+        }
+      ],
       "outputs": [
         {
-          "name": "MODEL",
-          "type": "MODEL",
+          "name": "frames",
+          "type": "IMAGE",
           "links": [
-            1
-          ]
-        },
-        {
-          "name": "CLIP",
-          "type": "CLIP",
-          "links": [
-            4,
-            6
-          ]
-        },
-        {
-          "name": "VAE",
-          "type": "VAE",
-          "links": [
-            2
+            55
           ]
         }
       ],
       "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.18.2",
-        "Node name for S&R": "CheckpointLoaderSimple",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.8"
-        }
+        "aux_id": "pxl-pshr/ComfyUI-SD-CN-Animation",
+        "ver": "f6f27d079ffb4cf434ae63ba1681202ab2884757",
+        "Node name for S&R": "SDCNTxt2Vid"
       },
       "widgets_values": [
-        "1.5\\epicrealism_pureEvolution.safetensors"
+        295470956492509,
+        "fixed",
+        20,
+        5.5,
+        "dpmpp_2m_sde",
+        "ddim_uniform",
+        512,
+        512,
+        100,
+        0.2,
+        0.35,
+        0,
+        1
       ]
     }
   ],
   "links": [
     [
+      4,
       1,
       1,
+      3,
       0,
-      2,
-      0,
-      "MODEL"
+      "CLIP"
     ],
     [
-      2,
+      6,
+      1,
+      1,
+      4,
+      0,
+      "CLIP"
+    ],
+    [
+      12,
+      12,
+      0,
+      11,
+      4,
+      "RAFT_MODEL"
+    ],
+    [
+      14,
       1,
       2,
-      2,
+      11,
       1,
       "VAE"
     ],
     [
-      3,
-      3,
+      17,
+      13,
       0,
-      2,
-      2,
-      "CONDITIONING"
-    ],
-    [
-      4,
-      1,
-      1,
-      3,
-      0,
-      "CLIP"
-    ],
-    [
+      11,
       5,
+      "IMAGE"
+    ],
+    [
+      19,
+      11,
+      0,
+      15,
+      0,
+      "IMAGE"
+    ],
+    [
+      21,
+      13,
+      3,
+      16,
+      0,
+      "VHS_VIDEOINFO"
+    ],
+    [
+      31,
+      14,
+      0,
+      23,
+      2,
+      "CONTROL_NET"
+    ],
+    [
+      32,
+      3,
+      0,
+      23,
+      0,
+      "CONDITIONING"
+    ],
+    [
+      33,
       4,
       0,
+      23,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      34,
+      13,
+      0,
+      23,
+      3,
+      "IMAGE"
+    ],
+    [
+      41,
+      1,
       2,
+      23,
+      4,
+      "VAE"
+    ],
+    [
+      45,
+      1,
+      0,
+      11,
+      0,
+      "MODEL"
+    ],
+    [
+      47,
+      23,
+      0,
+      11,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      48,
+      23,
+      1,
+      11,
       3,
       "CONDITIONING"
     ],
     [
-      6,
-      1,
-      1,
-      4,
+      49,
+      26,
       0,
-      "CLIP"
+      27,
+      0,
+      "IMAGE"
     ],
     [
-      8,
-      6,
+      50,
+      28,
       0,
-      2,
+      26,
       4,
       "FLOWER_MODEL"
     ],
     [
-      16,
+      51,
+      3,
+      0,
+      26,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      52,
+      4,
+      0,
+      26,
+      3,
+      "CONDITIONING"
+    ],
+    [
+      53,
       9,
       0,
-      2,
+      26,
       5,
       "IMAGE"
     ],
     [
-      18,
+      54,
+      1,
       2,
+      26,
+      1,
+      "VAE"
+    ],
+    [
+      55,
+      30,
       0,
-      8,
+      29,
       0,
       "IMAGE"
+    ],
+    [
+      57,
+      32,
+      0,
+      30,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      58,
+      4,
+      0,
+      30,
+      3,
+      "CONDITIONING"
+    ],
+    [
+      59,
+      28,
+      0,
+      30,
+      4,
+      "FLOWER_MODEL"
+    ],
+    [
+      60,
+      1,
+      1,
+      32,
+      0,
+      "CLIP"
+    ],
+    [
+      61,
+      16,
+      5,
+      15,
+      4,
+      "FLOAT"
+    ],
+    [
+      62,
+      1,
+      0,
+      26,
+      0,
+      "MODEL"
+    ],
+    [
+      63,
+      1,
+      0,
+      30,
+      0,
+      "MODEL"
+    ],
+    [
+      64,
+      1,
+      2,
+      30,
+      1,
+      "VAE"
     ]
   ],
-  "groups": [],
+  "groups": [
+    {
+      "id": 4,
+      "title": "vid2vid",
+      "bounding": [
+        10109.621690095611,
+        7783.314673041356,
+        2130.4354660733334,
+        1546.2481455152383
+      ],
+      "color": "#3f789e",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 5,
+      "title": "txt2vid - img2vid",
+      "bounding": [
+        10116.119277269803,
+        9366.302325347024,
+        2121.9882278843615,
+        1194.9003127722808
+      ],
+      "color": "#3f789e",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 6,
+      "title": "prompt schedule",
+      "bounding": [
+        10129.695308930388,
+        10593.426541948487,
+        2110.278708879867,
+        1237.0054274716404
+      ],
+      "color": "#3f789e",
+      "font_size": 24,
+      "flags": {}
+    }
+  ],
   "config": {},
   "extra": {
     "ue_links": [],
     "ds": {
-      "scale": 0.3558410273836827,
+      "scale": 0.39142513012205066,
       "offset": [
-        -7399.409830981589,
-        -7953.137082894784
+        -7476.347119490209,
+        -8973.996669347121
       ]
     },
     "links_added_by_ue": [],
