@@ -77,13 +77,13 @@ class SDCNPromptSchedule:
         return {
             "required": {
                 "clip": ("CLIP",),
-                "num_frames": ("INT", {"default": 30, "min": 1, "max": 9999}),
                 "text": ("STRING", {
                     "multiline": True,
                     "default": '"0": "a serene landscape"\n"30": "a vibrant cityscape"',
                     "tooltip": (
                         'Keyframe schedule: "frame_number": "prompt"\n'
-                        "Prompts interpolate smoothly between keyframes."
+                        "Prompts interpolate smoothly between keyframes. "
+                        "Frame count is controlled by the Txt2Vid/Vid2Vid node."
                     ),
                 }),
             }
@@ -98,7 +98,7 @@ class SDCNPromptSchedule:
         "Wire into Txt2Vid/Vid2Vid positive/negative for per-frame prompt changes."
     )
 
-    def create_schedule(self, clip, num_frames, text):
+    def create_schedule(self, clip, text):
         keyframes = parse_schedule(text)
 
         if not keyframes:
@@ -106,6 +106,9 @@ class SDCNPromptSchedule:
                 "Could not parse any keyframes from the schedule. "
                 'Use format: "0": "prompt here"'
             )
+
+        # Total frames covers up to the last keyframe + 1
+        num_frames = keyframes[-1][0] + 1
 
         # Encode all unique prompts and cache
         unique_prompts = list(dict.fromkeys(p for _, p in keyframes))
@@ -129,7 +132,6 @@ class SDCNPromptSchedule:
                     next_kf = keyframes[j + 1]
                     break
             else:
-                # frame_idx is beyond last keyframe or before first
                 if frame_idx <= keyframes[0][0]:
                     prev_kf = next_kf = keyframes[0]
                 elif frame_idx >= keyframes[-1][0]:
