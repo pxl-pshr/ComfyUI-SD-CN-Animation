@@ -15,9 +15,9 @@ import comfy.utils
 import comfy.model_management as mm
 import folder_paths
 
-from .flow_utils import raft_estimate_flow, raft_load_model, raft_clear_memory, compute_diff_map
-from .sampling_utils import histogram_match_tensor, apply_controlnet_to_cond, do_sample, frame_to_preview, get_cond_for_frame
-from .model_downloader import ensure_model
+from ..flow_utils import raft_estimate_flow, raft_load_model, raft_clear_memory, compute_diff_map
+from ..sampling_utils import histogram_match_tensor, apply_controlnet_to_cond, do_sample, frame_to_preview, get_cond_for_frame
+from ..model_downloader import ensure_model
 
 logger = logging.getLogger(__name__)
 

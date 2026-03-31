@@ -22,6 +22,7 @@ Both pipelines use a two-pass approach per frame to balance creativity with cohe
 | **SD-CN Animation Txt2Vid** | Generate video from text prompt using FloweR |
 | **Load RAFT Model** | Loads RAFT optical flow estimation model |
 | **SD-CN Animation Vid2Vid** | Stylize video frames using RAFT optical flow |
+| **SD-CN Prompt Schedule** | Keyframed prompt scheduling with interpolation |
 | **FloweR Predict** | Standalone FloweR prediction (debug/visualization) |
 | **Histogram Match** | Standalone color histogram matching utility |
 
@@ -73,6 +74,31 @@ Wire a **Load ControlNet Model** node into the `control_net` input:
 
 - **Vid2Vid:** The current input video frame is automatically used as the ControlNet hint each frame. Great with depth, canny, or lineart ControlNets to preserve structure.
 - **Txt2Vid:** The FloweR-predicted frame is used as the hint.
+
+### Prompt Scheduling
+
+Use the **SD-CN Prompt Schedule** node to change prompts at specific frames. Prompts interpolate smoothly between keyframes.
+
+```
+SD-CN Prompt Schedule ──→ positive ──→ SD-CN Animation Txt2Vid
+         ↑
+     CLIP from checkpoint
+```
+
+Write a keyframe schedule in the text box:
+
+```
+"0": "a serene forest landscape"
+"30": "the forest transforms into an ocean"
+"60": "a vast ocean under starlight"
+```
+
+- Frame numbers define when each prompt takes effect
+- Conditioning is linearly interpolated between keyframes for smooth transitions
+- Frames beyond the last keyframe hold that prompt
+- Frame count is controlled by the Txt2Vid/Vid2Vid node, not the schedule
+- Works with both SD1.5 and SDXL models
+- Without this node, the standard `CLIPTextEncode` workflow still works as before
 
 ### Multiple ControlNets / IPAdapter
 

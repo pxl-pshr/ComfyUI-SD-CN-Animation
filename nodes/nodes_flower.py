@@ -10,9 +10,9 @@ import folder_paths
 import comfy.model_management as mm
 import comfy.utils
 
-from .flower_model import FloweR
-from .flow_utils import frames_norm, frames_renorm, occl_renorm
-from .model_downloader import ensure_model
+from ..flower_model import FloweR
+from ..flow_utils import frames_norm, frames_renorm, occl_renorm
+from ..model_downloader import ensure_model
 
 # Register FloweR model folder
 flower_model_dir = os.path.join(folder_paths.models_dir, "FloweR")

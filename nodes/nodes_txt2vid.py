@@ -14,9 +14,9 @@ import comfy.utils
 import comfy.model_management as mm
 import latent_preview
 
-from .flower_model import FloweR
-from .flow_utils import frames_norm, frames_renorm, occl_renorm
-from .sampling_utils import histogram_match_tensor, apply_controlnet_to_cond, do_sample, frame_to_preview, get_cond_for_frame
+from ..flower_model import FloweR
+from ..flow_utils import frames_norm, frames_renorm, occl_renorm
+from ..sampling_utils import histogram_match_tensor, apply_controlnet_to_cond, do_sample, frame_to_preview, get_cond_for_frame
 
 logger = logging.getLogger(__name__)
 
