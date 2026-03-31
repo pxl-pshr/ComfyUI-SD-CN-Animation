@@ -79,7 +79,7 @@ class SDCNPromptSchedule:
                 "clip": ("CLIP",),
                 "text": ("STRING", {
                     "multiline": True,
-                    "default": '"0": "a serene landscape"\n"30": "a vibrant cityscape"',
+                    "default": '"0": "a serene landscape",\n"30": "a vibrant cityscape"',
                     "tooltip": (
                         'Keyframe schedule: "frame_number": "prompt"\n'
                         "Prompts interpolate smoothly between keyframes. "
