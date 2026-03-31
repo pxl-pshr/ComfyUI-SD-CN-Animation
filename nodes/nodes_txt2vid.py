@@ -91,6 +91,9 @@ class SDCNTxt2Vid:
             loop_frames = min(loop_frames, num_frames - 1)
 
         # --- Step 1: Generate or use first frame ---
+        pos_cond = get_cond_for_frame(positive, 0)
+        neg_cond = get_cond_for_frame(negative, 0)
+
         if init_image is not None:
             # Resize init image to target dimensions
             first_frame = init_image[0:1]  # (1, H, W, 3)
@@ -98,7 +101,17 @@ class SDCNTxt2Vid:
                 first_frame = first_frame.permute(0, 3, 1, 2)
                 first_frame = F.interpolate(first_frame, size=(height, width), mode="bilinear", align_corners=False)
                 first_frame = first_frame.permute(0, 2, 3, 1)
-            logger.info("Using provided init image as first frame")
+
+            # Run through img2img so model patches (IPAdapter etc.) can influence it
+            logger.info("Generating first frame from init image via img2img...")
+            first_frame = do_sample(
+                model, vae, pos_cond, neg_cond,
+                first_frame, seed, steps, cfg,
+                sampler_name, scheduler,
+                denoise=processing_strength,
+                disable_pbar=False
+            )
+            first_frame = torch.clamp(first_frame, 0, 1)
         else:
             # txt2img: generate from empty latent with full denoise
             logger.info("Generating first frame via txt2img...")
@@ -106,9 +119,6 @@ class SDCNTxt2Vid:
                                        device="cpu")
             empty_latent = comfy.sample.fix_empty_latent_channels(model, empty_latent)
             noise = comfy.sample.prepare_noise(empty_latent, seed)
-
-            pos_cond = get_cond_for_frame(positive, 0)
-            neg_cond = get_cond_for_frame(negative, 0)
 
             callback = latent_preview.prepare_callback(model, steps)
             samples = comfy.sample.sample(
