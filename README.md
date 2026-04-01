@@ -8,6 +8,8 @@ Generate videos from text prompts (**Txt2Vid**) or stylize existing videos (**Vi
 
 ## How It Works
 
+![Workflow screenshot](examples/screen.png)
+
 Both pipelines use a two-pass approach per frame to balance creativity with coherence:
 
 **Txt2Vid** uses the **FloweR** model to predict optical flow, occlusion, and the next frame from the previous 4 frames. Each frame is refined through two SD sampling passes — an inpaint pass guided by the occlusion mask, and a refinement pass for cleanup — with histogram matching to prevent color drift.
