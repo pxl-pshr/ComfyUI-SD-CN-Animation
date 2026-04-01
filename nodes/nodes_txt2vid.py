@@ -4,6 +4,7 @@ Iteratively generates video frames using FloweR optical flow prediction
 and two-pass SD sampling (inpaint + refine) with histogram matching.
 """
 
+import math
 import torch
 import torch.nn.functional as F
 import logging
@@ -66,6 +67,7 @@ class SDCNTxt2Vid:
                 "init_image": ("IMAGE",),
                 "control_net": ("CONTROL_NET",),
                 "cn_strength": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 10.0, "step": 0.01}),
+                "motion_ctrl": ("MOTION_CTRL",),
             }
         }
 
@@ -81,7 +83,7 @@ class SDCNTxt2Vid:
     def generate(self, model, vae, positive, negative, flower_model, seed, steps, cfg,
                  sampler_name, scheduler, width, height, num_frames,
                  processing_strength, fix_frame_strength, loop_frames=0,
-                 init_image=None, control_net=None, cn_strength=1.0):
+                 init_image=None, control_net=None, cn_strength=1.0, motion_ctrl=None):
 
         device = mm.get_torch_device()
         output_frames = []
@@ -173,10 +175,80 @@ class SDCNTxt2Vid:
 
             # Extract predictions
             pred_occl = occl_renorm(pred_data[..., 2:3])  # [0, 255]
-            pred_next = frames_renorm(pred_data[..., 3:6])  # [0, 255]
 
-            pred_occl = torch.clamp(pred_occl * 10, 0, 255)
-            pred_next = torch.clamp(pred_next, 0, 255)
+            # Occlusion multiplier (default 10, overridden by motion_ctrl)
+            occl_mult = 10.0
+            if motion_ctrl is not None:
+                occl_mult = motion_ctrl["occlusion_multiplier"]
+            pred_occl = torch.clamp(pred_occl * occl_mult, 0, 255)
+
+            if motion_ctrl is not None and (
+                motion_ctrl["flow_scale"] != 1.0 or
+                motion_ctrl["pan_x"] != 0.0 or
+                motion_ctrl["pan_y"] != 0.0 or
+                motion_ctrl["zoom"] != 1.0 or
+                motion_ctrl["rotate"] != 0.0
+            ):
+                # --- Motion control: extract raw flow, modify, re-warp ---
+                # Raw flow from FloweR output (channels 0-1 are pred_flow/255)
+                raw_flow = pred_data[..., 0:2] * 255.0  # (fH, fW, 2) pixel displacements
+                raw_flow = raw_flow * motion_ctrl["flow_scale"]
+                raw_flow[..., 0] += motion_ctrl["pan_x"]
+                raw_flow[..., 1] += motion_ctrl["pan_y"]
+
+                # Raw neural prediction (before FloweR's internal compositing)
+                pred_raw = pred_data[..., 3:6]  # [-1, 1] normalized
+                pred_raw = torch.clamp(pred_raw, -1, 1)
+
+                # Re-warp previous frame with modified flow (replicating flower_model.py logic)
+                fh, fw = flower_h, flower_w
+                grid_y, grid_x = torch.meshgrid(
+                    torch.arange(0, fh), torch.arange(0, fw), indexing='ij'
+                )
+                flow_grid = torch.stack((grid_x, grid_y), dim=0).float().to(device)
+                flow_grid = flow_grid.unsqueeze(0) + raw_flow.permute(2, 0, 1).unsqueeze(0)
+                flow_grid[:, 0, :, :] = 2 * flow_grid[:, 0, :, :] / (fw - 1) - 1
+                flow_grid[:, 1, :, :] = 2 * flow_grid[:, 1, :, :] / (fh - 1) - 1
+                flow_grid = flow_grid.permute(0, 2, 3, 1)
+
+                # Warp previous frame (from buffer, in [0,1])
+                prev_buf = clip_frames[-1].to(device)  # (fH, fW, 3)
+                prev_buf_bchw = prev_buf.permute(2, 0, 1).unsqueeze(0)  # (1, 3, fH, fW)
+                # Convert to [-1,1] to match FloweR's range
+                prev_buf_norm = prev_buf_bchw * 2.0 - 1.0
+                warped = F.grid_sample(
+                    prev_buf_norm, flow_grid, mode="nearest",
+                    padding_mode="reflection", align_corners=False
+                )
+
+                # Composite: same formula as FloweR but with user's occlusion multiplier
+                alpha = torch.clamp(occl_renorm(pred_data[..., 2:3]).permute(2, 0, 1).unsqueeze(0) / 255.0 * occl_mult, 0, 1) * 0.04
+                warped = torch.clamp(warped, -1, 1)
+                pred_raw_bchw = pred_raw.permute(2, 0, 1).unsqueeze(0)
+                composite = pred_raw_bchw * alpha + warped * (1 - alpha)
+
+                # Apply zoom and rotate as affine transform
+                if motion_ctrl["zoom"] != 1.0 or motion_ctrl["rotate"] != 0.0:
+                    z = motion_ctrl["zoom"]
+                    angle_rad = math.radians(motion_ctrl["rotate"])
+                    cos_a, sin_a = math.cos(angle_rad) / z, math.sin(angle_rad) / z
+                    theta = torch.tensor([
+                        [cos_a, -sin_a, 0.0],
+                        [sin_a, cos_a, 0.0]
+                    ], dtype=torch.float32, device=device).unsqueeze(0)
+                    affine_grid = F.affine_grid(theta, composite.shape, align_corners=False)
+                    composite = F.grid_sample(
+                        composite, affine_grid, mode="bilinear",
+                        padding_mode="reflection", align_corners=False
+                    )
+
+                # Convert back to [0,255] HWC for the existing resize/convert path
+                pred_next = ((composite[0] + 1.0) * 127.5).permute(1, 2, 0)  # (fH, fW, 3)
+                pred_next = torch.clamp(pred_next, 0, 255)
+            else:
+                # Standard path: use FloweR's composited prediction
+                pred_next = frames_renorm(pred_data[..., 3:6])  # [0, 255]
+                pred_next = torch.clamp(pred_next, 0, 255)
 
             # Resize to output resolution
             if flower_h != height or flower_w != width:
