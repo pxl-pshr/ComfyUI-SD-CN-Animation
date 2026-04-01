@@ -33,7 +33,7 @@ Both pipelines use a two-pass approach per frame to balance creativity with cohe
 
 Install via [ComfyUI Manager](https://github.com/ltdrdata/ComfyUI-Manager) or clone manually into `ComfyUI/custom_nodes/`.
 
-Model weights (~1.2GB FloweR + ~20MB RAFT) are **downloaded automatically** from [Hugging Face](https://huggingface.co/pxlpshr/ComfyUI-SD-CN-Animation) on first launch.
+Model weights (~8MB FloweR + ~20MB RAFT) are **downloaded automatically** from [Hugging Face](https://huggingface.co/pxlpshr/ComfyUI-SD-CN-Animation) on first launch.
 
 ## Workflows
 

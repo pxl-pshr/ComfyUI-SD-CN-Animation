@@ -15,7 +15,7 @@ MODELS = {
     "FloweR_0.1.2.pth": {
         "hf_path": "models/FloweR/FloweR_0.1.2.pth",
         "url": f"https://huggingface.co/{HF_REPO}/resolve/main/models/FloweR/FloweR_0.1.2.pth",
-        "size_mb": 1200,
+        "size_mb": 8,
     },
     "raft-things.pth": {
         "hf_path": "models/RAFT/raft-things.pth",
