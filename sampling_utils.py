@@ -135,14 +135,12 @@ def frame_to_preview(frame_tensor, max_size=512, frame_num=None, total_frames=No
         from PIL import ImageDraw, ImageFont
         draw = ImageDraw.Draw(pil_img)
         text = f"Frame {frame_num}/{total_frames}"
-        try:
-            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 16)
-        except (OSError, IOError):
-            font = ImageFont.load_default()
+        font_size = max(24, pil_img.height // 16)
+        font = ImageFont.load_default(size=font_size)
         bbox = draw.textbbox((0, 0), text, font=font)
         tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
-        x, y = pil_img.width - tw - 8, 6
-        draw.rectangle([x - 4, y - 2, x + tw + 4, y + th + 2], fill=(0, 0, 0, 180))
+        x, y = pil_img.width - tw - 12, 8
+        draw.rectangle([x - 6, y - 4, x + tw + 6, y + th + 4], fill=(0, 0, 0, 200))
         draw.text((x, y), text, fill=(255, 255, 255), font=font)
 
     return ("JPEG", pil_img, max_size)
