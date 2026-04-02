@@ -36,8 +36,10 @@ def get_cond_for_frame(conditioning, frame_index):
     for t in conditioning:
         tensor = t[0][idx:idx+1]
         d = t[1].copy()
-        if "pooled_output" in d and d["pooled_output"].shape[0] > 1:
-            d["pooled_output"] = d["pooled_output"][idx:idx+1]
+        # Slice all batched tensor values in the dict
+        for k, v in d.items():
+            if isinstance(v, torch.Tensor) and v.ndim >= 1 and v.shape[0] > 1:
+                d[k] = v[idx:idx+1]
         sliced.append([tensor, d])
     return sliced
 

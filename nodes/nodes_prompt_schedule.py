@@ -55,12 +55,11 @@ def parse_schedule(text):
 
 
 def encode_prompt(clip, prompt_text):
-    """Encode a text prompt using CLIP, returning (cond_tensor, pooled_or_none)."""
+    """Encode a text prompt using CLIP. Returns (cond_tensor, extra_dict) matching CLIPTextEncode."""
     tokens = clip.tokenize(prompt_text)
     output = clip.encode_from_tokens(tokens, return_pooled=True, return_dict=True)
     cond = output.pop("cond")
-    pooled = output.get("pooled_output", None)
-    return cond, pooled
+    return cond, output  # output is the full remaining dict (pooled_output + any other keys)
 
 
 class SDCNPromptSchedule:
@@ -114,13 +113,16 @@ class SDCNPromptSchedule:
         unique_prompts = list(dict.fromkeys(p for _, p in keyframes))
         encoded = {}
         for prompt_text in unique_prompts:
-            cond, pooled = encode_prompt(clip, prompt_text)
-            encoded[prompt_text] = (cond, pooled)
+            cond, extra = encode_prompt(clip, prompt_text)
+            encoded[prompt_text] = (cond, extra)
+
+        # Identify which extra dict keys are tensors that need batching
+        sample_extra = encoded[unique_prompts[0]][1]
+        tensor_keys = [k for k, v in sample_extra.items() if isinstance(v, torch.Tensor)]
 
         # Build per-frame conditioning by interpolating between keyframes
         cond_list = []
-        pooled_list = []
-        has_pooled = encoded[unique_prompts[0]][1] is not None
+        extra_lists = {k: [] for k in tensor_keys}
 
         for frame_idx in range(num_frames):
             # Find bracketing keyframes
@@ -137,8 +139,8 @@ class SDCNPromptSchedule:
                 elif frame_idx >= keyframes[-1][0]:
                     prev_kf = next_kf = keyframes[-1]
 
-            prev_cond, prev_pooled = encoded[prev_kf[1]]
-            next_cond, next_pooled = encoded[next_kf[1]]
+            prev_cond, prev_extra = encoded[prev_kf[1]]
+            next_cond, next_extra = encoded[next_kf[1]]
 
             # Compute interpolation weight
             if prev_kf[0] == next_kf[0]:
@@ -146,33 +148,42 @@ class SDCNPromptSchedule:
             else:
                 weight = (frame_idx - prev_kf[0]) / (next_kf[0] - prev_kf[0])
 
-            # Pad tensors to same seq_len if needed (different prompts = different token counts)
-            if prev_cond.shape[1] != next_cond.shape[1]:
-                max_len = max(prev_cond.shape[1], next_cond.shape[1])
-                if prev_cond.shape[1] < max_len:
-                    prev_cond = torch.nn.functional.pad(
-                        prev_cond, (0, 0, 0, max_len - prev_cond.shape[1])
+            # Pad cond tensors to same seq_len if needed
+            p_cond, n_cond = prev_cond, next_cond
+            if p_cond.shape[1] != n_cond.shape[1]:
+                max_len = max(p_cond.shape[1], n_cond.shape[1])
+                if p_cond.shape[1] < max_len:
+                    p_cond = torch.nn.functional.pad(
+                        p_cond, (0, 0, 0, max_len - p_cond.shape[1])
                     )
-                if next_cond.shape[1] < max_len:
-                    next_cond = torch.nn.functional.pad(
-                        next_cond, (0, 0, 0, max_len - next_cond.shape[1])
+                if n_cond.shape[1] < max_len:
+                    n_cond = torch.nn.functional.pad(
+                        n_cond, (0, 0, 0, max_len - n_cond.shape[1])
                     )
 
-            # Lerp
-            blended_cond = prev_cond * (1.0 - weight) + next_cond * weight
+            blended_cond = p_cond * (1.0 - weight) + n_cond * weight
             cond_list.append(blended_cond)
 
-            if has_pooled and prev_pooled is not None and next_pooled is not None:
-                blended_pooled = prev_pooled * (1.0 - weight) + next_pooled * weight
-                pooled_list.append(blended_pooled)
+            # Interpolate all tensor values in the extra dict
+            for k in tensor_keys:
+                prev_val = prev_extra[k]
+                next_val = next_extra[k]
+                blended = prev_val * (1.0 - weight) + next_val * weight
+                extra_lists[k].append(blended)
 
         # Stack into batched tensors
-        final_cond = torch.cat(cond_list, dim=0)  # (num_frames, seq_len, hidden_dim)
+        final_cond = torch.cat(cond_list, dim=0)
 
+        # Build the extra dict with batched tensors + preserve non-tensor keys
         cond_dict = {}
-        if pooled_list:
-            final_pooled = torch.cat(pooled_list, dim=0)  # (num_frames, pooled_dim)
-            cond_dict["pooled_output"] = final_pooled
+        for k, v in sample_extra.items():
+            if k in extra_lists and extra_lists[k]:
+                cond_dict[k] = torch.cat(extra_lists[k], dim=0)
+            else:
+                cond_dict[k] = v  # preserve non-tensor values as-is
+
+        logger.info(f"Prompt schedule: {len(keyframes)} keyframes, {num_frames} frames, "
+                     f"cond shape {final_cond.shape}, dict keys: {list(cond_dict.keys())}")
 
         return ([[final_cond, cond_dict]],)
 

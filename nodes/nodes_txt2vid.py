@@ -88,6 +88,12 @@ class SDCNTxt2Vid:
         device = mm.get_torch_device()
         output_frames = []
 
+        # Log conditioning info
+        cond_batch = positive[0][0].shape[0] if positive and len(positive) > 0 else 0
+        logger.info(f"Positive conditioning batch size: {cond_batch} "
+                     f"({'scheduled' if cond_batch > 1 else 'single prompt'}), "
+                     f"dict keys: {list(positive[0][1].keys()) if positive else []}")
+
         # Clamp loop_frames to valid range
         if loop_frames > 0:
             loop_frames = min(loop_frames, num_frames - 1)
