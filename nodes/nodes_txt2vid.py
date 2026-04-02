@@ -318,7 +318,7 @@ class SDCNTxt2Vid:
             output_frames.append(refined)
             prev_frame = refined
 
-            preview = frame_to_preview(refined)
+            preview = frame_to_preview(refined, frame_num=i + 2, total_frames=num_frames)
             pbar.update_absolute(i + 1, num_frames - 1, preview)
             logger.info(f"Frame {i + 2}/{num_frames} complete")
 

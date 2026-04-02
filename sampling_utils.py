@@ -122,11 +122,27 @@ def do_sample(model, vae, positive, negative, image_tensor, seed, steps, cfg,
     return decoded
 
 
-def frame_to_preview(frame_tensor, max_size=512):
+def frame_to_preview(frame_tensor, max_size=512, frame_num=None, total_frames=None):
     """
     Convert a (1, H, W, 3) float32 [0,1] tensor to a ComfyUI preview tuple.
     Returns ("JPEG", PIL.Image, max_size) for use with ProgressBar.update_absolute().
+    Optionally overlays frame counter text.
     """
     img_np = (frame_tensor[0].cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
     pil_img = Image.fromarray(img_np)
+
+    if frame_num is not None and total_frames is not None:
+        from PIL import ImageDraw, ImageFont
+        draw = ImageDraw.Draw(pil_img)
+        text = f"Frame {frame_num}/{total_frames}"
+        try:
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 16)
+        except (OSError, IOError):
+            font = ImageFont.load_default()
+        bbox = draw.textbbox((0, 0), text, font=font)
+        tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+        x, y = pil_img.width - tw - 8, 6
+        draw.rectangle([x - 4, y - 2, x + tw + 4, y + th + 2], fill=(0, 0, 0, 180))
+        draw.text((x, y), text, fill=(255, 255, 255), font=font)
+
     return ("JPEG", pil_img, max_size)

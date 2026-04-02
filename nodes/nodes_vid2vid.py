@@ -276,7 +276,7 @@ class SDCNVid2Vid:
 
             prev_frame_np = curr_frame_np.copy()
 
-            preview = frame_to_preview(output_frames[-1])
+            preview = frame_to_preview(output_frames[-1], frame_num=i + 1, total_frames=B)
             pbar.update_absolute(i, B - 1, preview)
             logger.info(f"Frame {i + 1}/{B} complete")
 
