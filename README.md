@@ -78,7 +78,9 @@ Wire a **Load ControlNet Model** node into the `control_net` input:
 - **Vid2Vid:** The current input video frame is automatically used as the ControlNet hint each frame. Great with depth, canny, or lineart ControlNets to preserve structure.
 - **Txt2Vid:** The FloweR-predicted frame is used as the hint.
 
-### Prompt Scheduling
+### Prompt Scheduling (Experimental)
+
+> **Note:** Prompt scheduling is experimental. At low `processing_strength` values (below 0.5), the text prompt has limited influence per frame and content may drift from the intended subject over long sequences. Higher `processing_strength` (0.55+) gives the prompt more steering power but reduces temporal smoothness. We are actively working on improving this balance.
 
 Use the **SD-CN Prompt Schedule** node to change prompts at specific frames. Prompts interpolate smoothly between keyframes.
 
