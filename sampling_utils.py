@@ -46,20 +46,29 @@ def get_cond_for_frame(conditioning, frame_index):
 
 def histogram_match_tensor(source, reference):
     """
-    Match histogram of source image to reference image.
+    Match histogram of source image to reference image in LAB color space.
+    LAB matching preserves hue relationships (the A/B channels encode color),
+    unlike RGB matching which adjusts each channel independently and can't
+    correct hue shifts (e.g., green skulls stay green after RGB matching).
+
     Both inputs are (1, H, W, 3) float32 tensors in [0, 1].
     Returns matched tensor in same format.
     """
-    try:
-        from skimage.exposure import match_histograms
-    except ImportError:
-        logger.warning("scikit-image not installed, skipping histogram matching")
-        return source
+    from skimage.exposure import match_histograms
+    import cv2
 
     src_np = (source[0].cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
     ref_np = (reference[0].cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
-    matched = match_histograms(src_np, ref_np, channel_axis=-1)
-    matched = np.clip(matched, 0, 255).astype(np.float32) / 255.0
+
+    # Convert RGB -> LAB so histogram matching operates on lightness + hue channels
+    src_lab = cv2.cvtColor(src_np, cv2.COLOR_RGB2LAB)
+    ref_lab = cv2.cvtColor(ref_np, cv2.COLOR_RGB2LAB)
+
+    matched_lab = match_histograms(src_lab, ref_lab, channel_axis=-1)
+    matched_lab = np.clip(matched_lab, 0, 255).astype(np.uint8)
+
+    matched = cv2.cvtColor(matched_lab, cv2.COLOR_LAB2RGB)
+    matched = matched.astype(np.float32) / 255.0
     return torch.from_numpy(matched).unsqueeze(0).to(source.device)
 
 

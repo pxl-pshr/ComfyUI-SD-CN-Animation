@@ -154,7 +154,15 @@ class SDCNTxt2Vid:
         flower_net.to(device).eval()
 
         # 4-frame buffer for FloweR (stored at FloweR resolution, [0,1] range)
-        clip_frames = torch.zeros(4, flower_h, flower_w, 3, device="cpu")
+        # Pre-fill with first frame to avoid garbage predictions from zero-padded buffer
+        first_resized = first_frame.permute(0, 3, 1, 2)  # (1, 3, H, W)
+        if first_resized.shape[2] != flower_h or first_resized.shape[3] != flower_w:
+            first_resized = F.interpolate(
+                first_resized, size=(flower_h, flower_w),
+                mode="bilinear", align_corners=False
+            )
+        first_frame_hw3 = first_resized[0].permute(1, 2, 0).cpu()  # (fH, fW, 3)
+        clip_frames = first_frame_hw3.unsqueeze(0).expand(4, -1, -1, -1).clone()
 
         prev_frame = first_frame  # (1, H, W, 3) on CPU
         pbar = comfy.utils.ProgressBar(num_frames - 1)
@@ -304,7 +312,7 @@ class SDCNTxt2Vid:
             )
             inpainted = torch.clamp(inpainted, 0, 1)
 
-            # Histogram match against first frame
+            # Histogram match against first frame for color anchoring
             inpainted = histogram_match_tensor(inpainted, init_frame_ref)
 
             # --- Refine pass (fix_frame_strength) ---
@@ -318,7 +326,7 @@ class SDCNTxt2Vid:
             )
             refined = torch.clamp(refined, 0, 1)
 
-            # Histogram match again
+            # Histogram match against first frame for color consistency
             refined = histogram_match_tensor(refined, init_frame_ref)
 
             output_frames.append(refined)

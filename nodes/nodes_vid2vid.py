@@ -270,7 +270,9 @@ class SDCNVid2Vid:
                 refined = torch.clamp(refined, 0, 1)
                 refined = histogram_match_tensor(refined, curr_frame_tensor)
                 output_frames.append(refined)
-                prev_styled_np = (refined[0].cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
+                # NOTE: prev_styled_np is NOT updated here — matches original behavior.
+                # The warping reference for the next frame should be the Step 1 output
+                # (after inpaint + alpha blend), not the Step 2 refined output.
             else:
                 output_frames.append(torch.from_numpy(proc_np).float().unsqueeze(0) / 255.0)
 
