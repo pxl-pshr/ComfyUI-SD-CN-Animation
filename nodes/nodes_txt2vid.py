@@ -302,12 +302,18 @@ class SDCNTxt2Vid:
             pred_occl_mask = torch.clamp(pred_occl_mask, 0, 1)
 
             # --- Loop blending: steer toward first frame in final frames ---
+            blend_prev = _loop_blend_weight(i, num_frames, loop_frames)
             blend_t = _loop_blend_weight(i + 1, num_frames, loop_frames)
             if blend_t > 0:
-                pred_next_img = pred_next_img * (1.0 - blend_t) + init_frame_ref * blend_t
+                # The prediction already carries the previous frames' pull toward frame 0,
+                # so only blend in the increment.
+                step_t = (blend_t - blend_prev) / (1.0 - blend_prev)
+                target, target_oob = _loop_target(init_frame_ref, motion_ctrl, num_frames - (i + 1))
+                step_w = step_t * (1.0 - target_oob).unsqueeze(-1)
+                pred_next_img = pred_next_img * (1.0 - step_w) + target * step_w
                 pred_next_img = torch.clamp(pred_next_img, 0, 1)
-                # Also soften the occlusion mask — less inpainting as we converge
-                pred_occl_mask = pred_occl_mask * (1.0 - blend_t)
+                # Less inpainting as we converge, except where frame 0 hasn't moved into view yet
+                pred_occl_mask = torch.maximum(pred_occl_mask * (1.0 - blend_t), target_oob)
 
             # Get conditioning for this frame (supports prompt scheduling)
             frame_num = i + 1
@@ -375,7 +381,7 @@ class SDCNTxt2Vid:
 
 def _loop_blend_weight(frame_idx, num_frames, loop_frames):
     """
-    Weight (0..1) for blending frame `frame_idx` toward the first frame so the
+    Share (0..1) of the first frame that frame `frame_idx` should carry so the
     clip loops. The last `loop_frames` frames are blended; frame 0 sits one step
     past the last frame (t = 1), so playback wraps without repeating it.
     """
@@ -388,6 +394,30 @@ def _loop_blend_weight(frame_idx, num_frames, loop_frames):
     t = k / (loop_frames + 1)
     # Smoothstep: eases out as it approaches frame 0 for a smooth wrap
     return t * t * (3.0 - 2.0 * t)
+
+
+def _loop_target(first_frame, motion_ctrl, steps_left):
+    """
+    First frame as it must look `steps_left` frames before the wrap, so the
+    motion_ctrl pan/zoom/rotate carries it onto frame 0 instead of stopping.
+    Returns ((1, H, W, 3) target, (1, H, W) mask of pixels frame 0 doesn't cover).
+    """
+    if motion_ctrl is None:
+        return first_frame, torch.zeros_like(first_frame[..., 0])
+    _, h, w, _ = first_frame.shape
+    z = motion_ctrl["zoom"]
+    a = math.radians(motion_ctrl["rotate"])
+    # One frame of motion as applied above: out(x) = prev(A x + pan)
+    step = torch.tensor([
+        [math.cos(a) / z, -math.sin(a) / z, 2.0 * motion_ctrl["pan_x"] / w],
+        [math.sin(a) / z, math.cos(a) / z, 2.0 * motion_ctrl["pan_y"] / h],
+        [0.0, 0.0, 1.0],
+    ], dtype=torch.float64)
+    theta = torch.linalg.matrix_power(step, -steps_left)[:2].float().unsqueeze(0)
+    grid = F.affine_grid(theta, (1, 3, h, w), align_corners=False)
+    target = F.grid_sample(first_frame.permute(0, 3, 1, 2), grid, mode="bilinear",
+                           padding_mode="border", align_corners=False)
+    return target.permute(0, 2, 3, 1), _out_of_bounds(grid)[:, 0]
 
 
 def _out_of_bounds(grid):
