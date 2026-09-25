@@ -118,7 +118,12 @@ class FloweR(nn.Module):
 
         self.conv_block_16 = nn.Conv2d(128, self.out_channels, kernel_size=3, stride=1, padding='same')
 
-    def forward(self, input_frames):
+    def forward(self, input_frames, return_raw_next=False):
+        """
+        Returns (B, H, W, 6): [flow / 255, occlusion (-1..1), composited next frame].
+        With return_raw_next=True, also returns the raw network next-frame prediction
+        (B, H, W, 3), clipped to [-1, 1], before it is composited with the warped frame.
+        """
         if input_frames.size(1) != self.window_size:
             raise Exception(
                 f'Shape of the input is not compatible. '
@@ -154,7 +159,7 @@ class FloweR(nn.Module):
         block_16_out = self.conv_block_16(block_15_out)
         out = block_16_out.reshape(-1, self.out_channels, self.input_size[0], self.input_size[1])
 
-        device = out.get_device()
+        device = out.device
 
         pred_flow = out[:, :2, :, :] * 255  # (-255, 255)
         pred_occl = (out[:, 2:3, :, :] + 1) / 2  # [0, 1]
@@ -185,4 +190,6 @@ class FloweR(nn.Module):
 
         # batch, channels, height, width -> batch, height, width, channels
         res = res.permute((0, 2, 3, 1))
+        if return_raw_next:
+            return res, pred_next.permute((0, 2, 3, 1))
         return res

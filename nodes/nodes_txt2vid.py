@@ -30,7 +30,7 @@ class SDCNTxt2Vid:
     1. FloweR predicts next frame estimate + occlusion mask from last 4 frames
     2. Inpaint pass: img2img the prediction using occlusion as mask (processing_strength)
     3. Refine pass: img2img the result with low denoise (fix_frame_strength)
-    4. Histogram match against first frame for color consistency
+    4. Histogram match against a color reference (first frame by default)
     """
 
     @classmethod
@@ -68,6 +68,15 @@ class SDCNTxt2Vid:
                 "control_net": ("CONTROL_NET",),
                 "cn_strength": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 10.0, "step": 0.01}),
                 "motion_ctrl": ("MOTION_CTRL",),
+                "color_match": (["first_frame", "previous_frame", "none"], {
+                    "default": "first_frame",
+                    "tooltip": (
+                        "Histogram reference used after each sampling pass. "
+                        "first_frame: strongest color stability, but pins the palette to frame 1 "
+                        "(fights prompt schedules that change colors). "
+                        "previous_frame: lets colors evolve gradually. none: no matching."
+                    ),
+                }),
             }
         }
 
@@ -83,7 +92,8 @@ class SDCNTxt2Vid:
     def generate(self, model, vae, positive, negative, flower_model, seed, steps, cfg,
                  sampler_name, scheduler, width, height, num_frames,
                  processing_strength, fix_frame_strength, loop_frames=0,
-                 init_image=None, control_net=None, cn_strength=1.0, motion_ctrl=None):
+                 init_image=None, control_net=None, cn_strength=1.0, motion_ctrl=None,
+                 color_match="first_frame"):
 
         device = mm.get_torch_device()
         output_frames = []
@@ -185,7 +195,9 @@ class SDCNTxt2Vid:
             # Normalize: FloweR expects [-1, 1] from pixel values [0, 255]
             clip_normed = frames_norm(clip_frames * 255.0)
             with torch.no_grad():
-                pred_data = flower_net(clip_normed.unsqueeze(0).to(device))[0]  # (fH, fW, 6)
+                pred_data, pred_raw = flower_net(clip_normed.unsqueeze(0).to(device), return_raw_next=True)
+            pred_data = pred_data[0]  # (fH, fW, 6): flow, occlusion, composited next frame
+            pred_raw = pred_raw[0]    # (fH, fW, 3): raw network prediction in [-1, 1]
 
             # Extract predictions
             pred_occl = occl_renorm(pred_data[..., 2:3])  # [0, 255]
@@ -207,12 +219,9 @@ class SDCNTxt2Vid:
                 # Raw flow from FloweR output (channels 0-1 are pred_flow/255)
                 raw_flow = pred_data[..., 0:2] * 255.0  # (fH, fW, 2) pixel displacements
                 raw_flow = raw_flow * motion_ctrl["flow_scale"]
-                raw_flow[..., 0] += motion_ctrl["pan_x"]
-                raw_flow[..., 1] += motion_ctrl["pan_y"]
-
-                # Raw neural prediction (before FloweR's internal compositing)
-                pred_raw = pred_data[..., 3:6]  # [-1, 1] normalized
-                pred_raw = torch.clamp(pred_raw, -1, 1)
+                # Pan is specified in output pixels; convert to FloweR resolution
+                raw_flow[..., 0] += motion_ctrl["pan_x"] * flower_w / width
+                raw_flow[..., 1] += motion_ctrl["pan_y"] * flower_h / height
 
                 # Re-warp previous frame with modified flow (replicating flower_model.py logic)
                 fh, fw = flower_h, flower_w
@@ -241,7 +250,12 @@ class SDCNTxt2Vid:
                 pred_raw_bchw = pred_raw.permute(2, 0, 1).unsqueeze(0)
                 composite = pred_raw_bchw * alpha + warped * (1 - alpha)
 
-                # Apply zoom and rotate as affine transform
+                # Pixels sampled from outside the previous frame are reflection
+                # padding, not real content: mark them for inpainting.
+                occl_bchw = pred_occl.permute(2, 0, 1).unsqueeze(0)  # (1, 1, fH, fW) [0, 255]
+                occl_bchw = torch.maximum(occl_bchw, _out_of_bounds(flow_grid) * 255.0)
+
+                # Apply zoom and rotate as affine transform (to the frame and its mask)
                 if motion_ctrl["zoom"] != 1.0 or motion_ctrl["rotate"] != 0.0:
                     z = motion_ctrl["zoom"]
                     angle_rad = math.radians(motion_ctrl["rotate"])
@@ -255,6 +269,13 @@ class SDCNTxt2Vid:
                         composite, affine_grid, mode="bilinear",
                         padding_mode="reflection", align_corners=False
                     )
+                    occl_bchw = F.grid_sample(
+                        occl_bchw, affine_grid, mode="bilinear",
+                        padding_mode="border", align_corners=False
+                    )
+                    occl_bchw = torch.maximum(occl_bchw, _out_of_bounds(affine_grid) * 255.0)
+
+                pred_occl = occl_bchw[0].permute(1, 2, 0)  # (fH, fW, 1)
 
                 # Convert back to [0,255] HWC for the existing resize/convert path
                 pred_next = ((composite[0] + 1.0) * 127.5).permute(1, 2, 0)  # (fH, fW, 3)
@@ -281,17 +302,12 @@ class SDCNTxt2Vid:
             pred_occl_mask = torch.clamp(pred_occl_mask, 0, 1)
 
             # --- Loop blending: steer toward first frame in final frames ---
-            if loop_frames > 0:
-                frames_remaining = (num_frames - 1) - i  # how many frames left after this one
-                if frames_remaining < loop_frames:
-                    # blend_t goes from ~0 (start of loop zone) to 1.0 (last frame)
-                    blend_t = 1.0 - (frames_remaining / loop_frames)
-                    # Ease-in curve: stays low for most of the zone, ramps up at end
-                    blend_t = blend_t ** 3
-                    pred_next_img = pred_next_img * (1.0 - blend_t) + init_frame_ref * blend_t
-                    pred_next_img = torch.clamp(pred_next_img, 0, 1)
-                    # Also soften the occlusion mask — less inpainting as we converge
-                    pred_occl_mask = pred_occl_mask * (1.0 - blend_t)
+            blend_t = _loop_blend_weight(i + 1, num_frames, loop_frames)
+            if blend_t > 0:
+                pred_next_img = pred_next_img * (1.0 - blend_t) + init_frame_ref * blend_t
+                pred_next_img = torch.clamp(pred_next_img, 0, 1)
+                # Also soften the occlusion mask — less inpainting as we converge
+                pred_occl_mask = pred_occl_mask * (1.0 - blend_t)
 
             # Get conditioning for this frame (supports prompt scheduling)
             frame_num = i + 1
@@ -312,8 +328,10 @@ class SDCNTxt2Vid:
             )
             inpainted = torch.clamp(inpainted, 0, 1)
 
-            # Histogram match against first frame for color anchoring
-            inpainted = histogram_match_tensor(inpainted, init_frame_ref)
+            # Histogram match for color anchoring
+            color_ref = self._color_reference(color_match, init_frame_ref, prev_frame)
+            if color_ref is not None:
+                inpainted = histogram_match_tensor(inpainted, color_ref)
 
             # --- Refine pass (fix_frame_strength) ---
             refined = do_sample(
@@ -326,8 +344,9 @@ class SDCNTxt2Vid:
             )
             refined = torch.clamp(refined, 0, 1)
 
-            # Histogram match against first frame for color consistency
-            refined = histogram_match_tensor(refined, init_frame_ref)
+            # Histogram match for color consistency
+            if color_ref is not None:
+                refined = histogram_match_tensor(refined, color_ref)
 
             output_frames.append(refined)
             prev_frame = refined
@@ -344,6 +363,36 @@ class SDCNTxt2Vid:
         # Stack all frames into batch: (N, H, W, 3)
         all_frames = torch.cat(output_frames, dim=0)
         return (all_frames,)
+
+    @staticmethod
+    def _color_reference(color_match, first_frame, prev_frame):
+        if color_match == "first_frame":
+            return first_frame
+        if color_match == "previous_frame":
+            return prev_frame
+        return None
+
+
+def _loop_blend_weight(frame_idx, num_frames, loop_frames):
+    """
+    Weight (0..1) for blending frame `frame_idx` toward the first frame so the
+    clip loops. The last `loop_frames` frames are blended; frame 0 sits one step
+    past the last frame (t = 1), so playback wraps without repeating it.
+    """
+    if loop_frames <= 0:
+        return 0.0
+    # 1 for the first frame in the loop zone, loop_frames for the last frame
+    k = frame_idx - (num_frames - loop_frames) + 1
+    if k < 1:
+        return 0.0
+    t = k / (loop_frames + 1)
+    # Smoothstep: eases out as it approaches frame 0 for a smooth wrap
+    return t * t * (3.0 - 2.0 * t)
+
+
+def _out_of_bounds(grid):
+    """(1, H, W, 2) grid_sample grid -> (1, 1, H, W) float mask of samples outside the source image."""
+    return (grid.abs() > 1.0).any(dim=-1).float().unsqueeze(1)
 
 
 NODE_CLASS_MAPPINGS = {

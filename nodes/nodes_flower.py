@@ -8,16 +8,14 @@ import torch
 import numpy as np
 import folder_paths
 import comfy.model_management as mm
-import comfy.utils
 
 from ..flower_model import FloweR
 from ..flow_utils import frames_norm, frames_renorm, occl_renorm
-from ..model_downloader import ensure_model
+from ..model_downloader import ensure_model, register_model_folder
 
 # Register FloweR model folder
 flower_model_dir = os.path.join(folder_paths.models_dir, "FloweR")
-os.makedirs(flower_model_dir, exist_ok=True)
-folder_paths.add_model_folder_path("flower", flower_model_dir)
+register_model_folder("flower", flower_model_dir)
 
 # Auto-download FloweR model if not present
 try:
@@ -45,7 +43,7 @@ class LoadFloweRModel:
 
     def load_model(self, model_name):
         model_path = folder_paths.get_full_path("flower", model_name)
-        state_dict = torch.load(model_path, map_location="cpu", weights_only=False)
+        state_dict = torch.load(model_path, map_location="cpu", weights_only=True)
         return ({"state_dict": state_dict},)
 
 

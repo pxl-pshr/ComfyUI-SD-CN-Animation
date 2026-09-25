@@ -116,6 +116,14 @@ class SDCNPromptSchedule:
             cond, extra = encode_prompt(clip, prompt_text)
             encoded[prompt_text] = (cond, extra)
 
+        # Pad all cond tensors to the longest sequence (prompts > 77 tokens produce
+        # longer conds) so every per-frame blend can be batched together.
+        max_len = max(c.shape[1] for c, _ in encoded.values())
+        for prompt_text, (cond, extra) in encoded.items():
+            if cond.shape[1] < max_len:
+                cond = torch.nn.functional.pad(cond, (0, 0, 0, max_len - cond.shape[1]))
+                encoded[prompt_text] = (cond, extra)
+
         # Identify which extra dict keys are tensors that need batching
         sample_extra = encoded[unique_prompts[0]][1]
         tensor_keys = [k for k, v in sample_extra.items() if isinstance(v, torch.Tensor)]
@@ -148,20 +156,7 @@ class SDCNPromptSchedule:
             else:
                 weight = (frame_idx - prev_kf[0]) / (next_kf[0] - prev_kf[0])
 
-            # Pad cond tensors to same seq_len if needed
-            p_cond, n_cond = prev_cond, next_cond
-            if p_cond.shape[1] != n_cond.shape[1]:
-                max_len = max(p_cond.shape[1], n_cond.shape[1])
-                if p_cond.shape[1] < max_len:
-                    p_cond = torch.nn.functional.pad(
-                        p_cond, (0, 0, 0, max_len - p_cond.shape[1])
-                    )
-                if n_cond.shape[1] < max_len:
-                    n_cond = torch.nn.functional.pad(
-                        n_cond, (0, 0, 0, max_len - n_cond.shape[1])
-                    )
-
-            blended_cond = p_cond * (1.0 - weight) + n_cond * weight
+            blended_cond = prev_cond * (1.0 - weight) + next_cond * weight
             cond_list.append(blended_cond)
 
             # Interpolate all tensor values in the extra dict

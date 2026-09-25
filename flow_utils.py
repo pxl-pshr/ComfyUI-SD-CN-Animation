@@ -38,23 +38,27 @@ def occl_renorm(occl):
 # RAFT optical flow estimation
 
 _raft_model = None
+_raft_model_key = None  # (model_path, device) the cached model was loaded with
 
 
 def raft_clear_memory():
-    global _raft_model
+    global _raft_model, _raft_model_key
     if _raft_model is not None:
-        del _raft_model
+        _raft_model = None
+        _raft_model_key = None
         gc.collect()
         torch.cuda.empty_cache()
-        _raft_model = None
 
 
 def raft_load_model(model_path, device='cuda'):
-    """Load RAFT model from weights file."""
-    global _raft_model
+    """Load RAFT model from weights file (cached until raft_clear_memory or a different path/device)."""
+    global _raft_model, _raft_model_key
 
+    key = (model_path, str(device))
     if _raft_model is not None:
-        return _raft_model
+        if _raft_model_key == key:
+            return _raft_model
+        raft_clear_memory()
 
     use_mixed_precision = torch.cuda.is_available()
     args = argparse.Namespace(**{
@@ -77,8 +81,10 @@ def raft_load_model(model_path, device='cuda'):
         model.to(device)
         model.eval()
         _raft_model = model
+        _raft_model_key = key
     except Exception as e:
         _raft_model = None
+        _raft_model_key = None
         raise RuntimeError(f"Failed to load RAFT model from {model_path}: {e}")
 
     return _raft_model
@@ -101,11 +107,13 @@ def raft_estimate_flow(frame1, frame2, device='cuda', model_path=None):
 
     org_size = frame1.shape[1], frame1.shape[0]
     size = frame1.shape[1] // 16 * 16, frame1.shape[0] // 16 * 16
+    if size[0] == 0 or size[1] == 0:
+        raise ValueError(f"RAFT needs frames of at least 16x16 pixels, got {org_size[0]}x{org_size[1]}.")
     frame1 = cv2.resize(frame1, size)
     frame2 = cv2.resize(frame2, size)
 
-    if _raft_model is None and model_path is not None:
-        raft_load_model(model_path, device)
+    if model_path is not None:
+        raft_load_model(model_path, device)  # no-op if already cached for this path/device
 
     if _raft_model is None:
         raise RuntimeError("RAFT model not loaded. Provide model_path or call raft_load_model first.")
@@ -123,12 +131,14 @@ def raft_estimate_flow(frame1, frame2, device='cuda', model_path=None):
         next_flow = next_flow[0].permute(1, 2, 0).cpu().numpy()
         prev_flow = prev_flow[0].permute(1, 2, 0).cpu().numpy()
 
-        fb_flow = next_flow + prev_flow
-        fb_norm = np.linalg.norm(fb_flow, axis=2)
-        occlusion_mask = fb_norm[..., None].repeat(3, axis=-1)
+    # Resize flow fields back to the original resolution. Flow vectors are in
+    # pixels of the resized frames, so scale them by the same factor.
+    flow_scale = np.array([org_size[0] / size[0], org_size[1] / size[1]], dtype=np.float32)
+    next_flow = cv2.resize(next_flow, org_size) * flow_scale
+    prev_flow = cv2.resize(prev_flow, org_size) * flow_scale
 
-    next_flow = cv2.resize(next_flow, org_size)
-    prev_flow = cv2.resize(prev_flow, org_size)
+    fb_norm = np.linalg.norm(next_flow + prev_flow, axis=2)
+    occlusion_mask = fb_norm[..., None].repeat(3, axis=-1)
 
     return next_flow, prev_flow, occlusion_mask
 

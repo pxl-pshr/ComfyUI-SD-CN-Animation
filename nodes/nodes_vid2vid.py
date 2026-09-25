@@ -6,7 +6,6 @@ and two-pass SD sampling (process + refine) with histogram matching.
 
 import os
 import torch
-import torch.nn.functional as F
 import numpy as np
 import logging
 
@@ -17,15 +16,14 @@ import folder_paths
 
 from ..flow_utils import raft_estimate_flow, raft_load_model, raft_clear_memory, compute_diff_map
 from ..sampling_utils import histogram_match_tensor, apply_controlnet_to_cond, do_sample, frame_to_preview, get_cond_for_frame
-from ..model_downloader import ensure_model
+from ..model_downloader import ensure_model, register_model_folder
 
 logger = logging.getLogger(__name__)
 
 
 # Register RAFT model folder
 raft_model_dir = os.path.join(folder_paths.models_dir, "RAFT")
-os.makedirs(raft_model_dir, exist_ok=True)
-folder_paths.add_model_folder_path("raft", raft_model_dir)
+register_model_folder("raft", raft_model_dir)
 
 # Auto-download RAFT model if not present
 try:
@@ -33,6 +31,28 @@ try:
 except Exception as e:
     print(f"[SD-CN-Animation] RAFT model auto-download failed: {e}")
     print("[SD-CN-Animation] Please download raft-things.pth manually from https://huggingface.co/pxlpshr/ComfyUI-SD-CN-Animation")
+
+
+def _crop_to_vae_grid(frames, vae):
+    """Center-crop (B, H, W, C) frames to a multiple of the VAE downscale ratio, matching ComfyUI's VAE encode."""
+    ratio = 8
+    try:
+        r = vae.spacial_compression_encode()
+        if isinstance(r, int) and r > 0:
+            ratio = r
+    except Exception:
+        pass
+
+    _, H, W, _ = frames.shape
+    new_h, new_w = H // ratio * ratio, W // ratio * ratio
+    if new_h == 0 or new_w == 0:
+        raise ValueError(f"Frames must be at least {ratio}x{ratio} pixels, got {W}x{H}.")
+    if (new_h, new_w) == (H, W):
+        return frames
+
+    top, left = (H - new_h) // 2, (W - new_w) // 2
+    logger.warning(f"Frame size {W}x{H} is not a multiple of {ratio}; center-cropping to {new_w}x{new_h}.")
+    return frames[:, top:top + new_h, left:left + new_w, :]
 
 
 class LoadRAFTModel:
@@ -140,12 +160,39 @@ class SDCNVid2Vid:
                  occlusion_mask_trailing,
                  control_net=None, cn_strength=1.0):
 
+        if frames.shape[0] < 2:
+            raise ValueError("Vid2Vid requires at least 2 input frames.")
+
+        # The VAE silently center-crops inputs to a multiple of its downscale
+        # ratio, which would make decoded frames smaller than the flow/occlusion
+        # arrays. Apply the same crop up front so every array stays aligned.
+        frames = _crop_to_vae_grid(frames, vae)
+
+        # Load RAFT and make sure it is released even if sampling is interrupted
+        model_path = raft_model["model_path"]
+        raft_load_model(model_path, device=mm.get_torch_device())
+        logger.info("RAFT model loaded")
+        try:
+            return self._generate(
+                model, vae, positive, negative, model_path, frames, seed, steps, cfg,
+                sampler_name, scheduler, processing_strength, fix_frame_strength,
+                blend_alpha, occlusion_mask_blur, occlusion_mask_flow_multiplier,
+                occlusion_mask_difo_multiplier, occlusion_mask_difs_multiplier,
+                occlusion_mask_trailing, control_net, cn_strength,
+            )
+        finally:
+            raft_clear_memory()
+            mm.soft_empty_cache()
+
+    def _generate(self, model, vae, positive, negative, model_path, frames, seed, steps, cfg,
+                  sampler_name, scheduler, processing_strength, fix_frame_strength,
+                  blend_alpha, occlusion_mask_blur, occlusion_mask_flow_multiplier,
+                  occlusion_mask_difo_multiplier, occlusion_mask_difs_multiplier,
+                  occlusion_mask_trailing, control_net, cn_strength):
+
         device = mm.get_torch_device()
         B, H, W, C = frames.shape
         output_frames = []
-
-        if B < 2:
-            raise ValueError("Vid2Vid requires at least 2 input frames.")
 
         # Occlusion args dict (matches original code's expected keys)
         occ_args = {
@@ -154,11 +201,6 @@ class SDCNVid2Vid:
             'occlusion_mask_difo_multiplier': occlusion_mask_difo_multiplier,
             'occlusion_mask_difs_multiplier': occlusion_mask_difs_multiplier,
         }
-
-        # --- Load RAFT model ---
-        model_path = raft_model["model_path"]
-        raft_load_model(model_path, device=device)
-        logger.info("RAFT model loaded")
 
         # --- Process first frame ---
         curr_frame_np = (frames[0].cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
@@ -281,10 +323,6 @@ class SDCNVid2Vid:
             preview = frame_to_preview(output_frames[-1], frame_num=i + 1, total_frames=B)
             pbar.update_absolute(i, B - 1, preview)
             logger.info(f"Frame {i + 1}/{B} complete")
-
-        # Cleanup RAFT
-        raft_clear_memory()
-        mm.soft_empty_cache()
 
         all_frames = torch.cat(output_frames, dim=0)
         return (all_frames,)

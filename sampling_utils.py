@@ -6,10 +6,8 @@ import torch
 import numpy as np
 import logging
 from PIL import Image
-from io import BytesIO
 
 import comfy.sample
-import comfy.model_management as mm
 import latent_preview
 
 logger = logging.getLogger(__name__)
@@ -18,27 +16,30 @@ logger = logging.getLogger(__name__)
 def get_cond_for_frame(conditioning, frame_index):
     """
     Slice batched conditioning at a given frame index.
-    If conditioning is single-frame (batch dim == 1), returns it unchanged.
+    Entries with batch dim == 1 are passed through unchanged, so scheduled and
+    plain conditioning can be mixed (e.g. via ConditioningCombine).
     Compatible with FizzNodes BatchPromptSchedule output.
     """
     if conditioning is None or len(conditioning) == 0:
         return conditioning
 
-    # Check if first entry has a batched tensor (batch dim > 1)
-    cond_tensor = conditioning[0][0]
-    if cond_tensor.shape[0] <= 1:
+    if all(t[0].shape[0] <= 1 for t in conditioning):
         return conditioning
-
-    # Clamp frame index to available range
-    idx = min(frame_index, cond_tensor.shape[0] - 1)
 
     sliced = []
     for t in conditioning:
+        batch = t[0].shape[0]
+        if batch <= 1:
+            sliced.append(t)
+            continue
+
+        # Clamp frame index to this entry's available range
+        idx = min(frame_index, batch - 1)
         tensor = t[0][idx:idx+1]
         d = t[1].copy()
-        # Slice all batched tensor values in the dict
+        # Slice only dict tensors that are batched per-frame alongside the cond tensor
         for k, v in d.items():
-            if isinstance(v, torch.Tensor) and v.ndim >= 1 and v.shape[0] > 1:
+            if isinstance(v, torch.Tensor) and v.ndim >= 1 and v.shape[0] == batch:
                 d[k] = v[idx:idx+1]
         sliced.append([tensor, d])
     return sliced
@@ -147,9 +148,12 @@ def frame_to_preview(frame_tensor, max_size=512, frame_num=None, total_frames=No
         draw = ImageDraw.Draw(pil_img)
         text = f"Frame {frame_num}/{total_frames}"
         font_size = max(24, pil_img.height // 16)
-        font = ImageFont.load_default(size=font_size)
+        try:
+            font = ImageFont.load_default(size=font_size)
+        except TypeError:  # Pillow < 10.1 has no size argument
+            font = ImageFont.load_default()
         bbox = draw.textbbox((0, 0), text, font=font)
-        tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+        tw = bbox[2] - bbox[0]
         x, y = pil_img.width - tw - 12, 8
         draw.text((x, y), text, fill=(255, 255, 255), font=font)
 
